@@ -45,7 +45,7 @@ class SignInPage extends Component {
     componentDidMount() {
         // Always reset the unread counter to zero on this page
         // NOTE: We need to wait for the next tick to ensure that the unread indicator is updated
-        setTimeout(() => updateUnread(0), 0);
+        setTimeout(() => updateUnread(0), 100);
     }
 
     render() {
