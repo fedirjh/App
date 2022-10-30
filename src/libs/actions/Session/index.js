@@ -374,7 +374,8 @@ function clearSignInData() {
 function cleanupSession() {
     // We got signed out in this tab or another so clean up any subscriptions and timers
     NetworkConnection.stopListeningForReconnect();
-    UnreadIndicatorUpdater.stopListeningForReportChanges();
+
+    // UnreadIndicatorUpdater.stopListeningForReportChanges();
     PushNotification.deregister();
     PushNotification.clearNotifications();
     Pusher.disconnect();

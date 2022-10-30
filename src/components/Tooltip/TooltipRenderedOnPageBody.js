@@ -77,7 +77,26 @@ class TooltipRenderedOnPageBody extends React.PureComponent {
         if (prevProps.text === this.props.text) {
             return;
         }
-        this.updateTooltipTextWidth();
+        // eslint-disable-next-line react/no-did-update-set-state
+        this.setState({tooltipTextWidth: 0}, () => this.updateTooltipTextWidthOnTextChange());
+        // eslint-disable-next-line react/no-did-update-set-state
+        // Promise.resolve()
+        //  .then(() => this.setState({tooltipTextWidth: 0}))
+        // .then(() => this.updateTooltipTextWidthOnTextChange());
+    }
+
+    // update tooltip text on text change
+    updateTooltipTextWidthOnTextChange() {
+
+        this.setState({
+            tooltipTextWidth: this.textRef.offsetWidth,
+        });
+
+        /* this.setState({
+            tooltipTextWidth: this.textRef.offsetWidth,
+        }); */
+
+        // this.textRef.style.whiteSpace = 'normal';
     }
 
     updateTooltipTextWidth() {
@@ -124,7 +143,7 @@ class TooltipRenderedOnPageBody extends React.PureComponent {
                 onLayout={this.measureTooltip}
                 style={[tooltipWrapperStyle, animationStyle]}
             >
-                <Text numberOfLines={this.props.numberOfLines} style={tooltipTextStyle}>
+                <Text numberOfLines={this.props.numberOfLines} style={[tooltipTextStyle]}>
                     <Text style={tooltipTextStyle} ref={ref => this.textRef = ref}>{this.props.text}</Text>
                 </Text>
                 <View style={pointerWrapperStyle}>

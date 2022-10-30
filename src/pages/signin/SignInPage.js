@@ -42,11 +42,11 @@ const defaultProps = {
 };
 
 class SignInPage extends Component {
-    componentDidMount() {
+    // componentDidMount() {
         // Always reset the unread counter to zero on this page
         // NOTE: We need to wait for the next tick to ensure that the unread indicator is updated
-        setTimeout(() => updateUnread(0), 0);
-    }
+     //   setTimeout(() => updateUnread(0), 0);
+   //  }
 
     render() {
         // Show the login form if

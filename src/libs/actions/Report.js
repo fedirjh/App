@@ -25,6 +25,7 @@ import Growl from '../Growl';
 import * as Localize from '../Localize';
 import DateUtils from '../DateUtils';
 import * as ReportActionsUtils from '../ReportActionsUtils';
+import UnreadIndicatorUpdater from '../UnreadIndicatorUpdater';
 
 let currentUserEmail;
 let currentUserAccountID;
@@ -470,6 +471,7 @@ function subscribeToReportTypingEvents(reportID) {
  */
 function unsubscribeFromReportChannel(reportID) {
     if (!reportID) {
+        console.log('unsubscribeFromReportChannel called with no reportID');
         return;
     }
 
@@ -920,8 +922,15 @@ function broadcastUserIsTyping(reportID) {
  *
  * @param {Object} report
  */
-function handleReportChanged(report) {
+function handleReportChanged(report, key) {
+    if (!key) {
+        // console.log('handleReportChanged called without a key');
+        return;
+    }
+
     if (!report) {
+        console.log('handleReportChanged called without a report');
+        UnreadIndicatorUpdater.removeFromUnread(key.split('_')[1]);
         return;
     }
 
@@ -931,6 +940,12 @@ function handleReportChanged(report) {
         if (ReportUtils.isConciergeChatReport(report)) {
             conciergeChatReportID = report.reportID;
         }
+    }
+
+    if (ReportUtils.isUnread(report)) {
+        UnreadIndicatorUpdater.addToUnread(report.reportID);
+    } else {
+        UnreadIndicatorUpdater.removeFromUnread(report.reportID);
     }
 
     // A report can be missing a name if a comment is received via pusher event

@@ -102,7 +102,7 @@ class AuthScreens extends React.Component {
         });
 
         // Listen for report changes and fetch some data we need on initialization
-        UnreadIndicatorUpdater.listenForReportChanges();
+        // UnreadIndicatorUpdater.listenForReportChanges();
         App.openApp();
         App.setUpPoliciesAndNavigate(this.props.session);
         Timing.end(CONST.TIMING.HOMEPAGE_INITIAL_RENDER);

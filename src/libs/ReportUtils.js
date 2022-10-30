@@ -849,9 +849,13 @@ function buildOptimisticWorkspaceChats(policyID, policyName) {
  * @returns {Boolean}
  */
 function isUnread(report) {
-    const lastReadSequenceNumber = report.lastReadSequenceNumber || 0;
-    const maxSequenceNumber = report.maxSequenceNumber || 0;
-    return lastReadSequenceNumber < maxSequenceNumber;
+    if (report) {
+        const lastReadSequenceNumber = report.lastReadSequenceNumber || 0;
+        const maxSequenceNumber = report.maxSequenceNumber || 0;
+        return lastReadSequenceNumber < maxSequenceNumber;
+    } else {
+        return false;
+    }
 }
 
 /**

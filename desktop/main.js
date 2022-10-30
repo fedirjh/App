@@ -147,7 +147,7 @@ const mainWindow = (() => {
                     preload: `${__dirname}/contextBridge.js`,
                     contextIsolation: true,
                 },
-                titleBarStyle: 'hidden',
+                titleBarStyle: 'hidden'
             });
 
             /*
@@ -260,12 +260,20 @@ const mainWindow = (() => {
 
             // Closing the chat window should just hide it (vs. fully quitting the application)
             browserWindow.on('close', (evt) => {
-                if (quitting || hasUpdate) {
+                if (quitting || hasUpdate || browserWindow.isFullScreen()) {
                     return;
                 }
 
                 evt.preventDefault();
+
+                // if (browserWindow.isFullScreen()){
+                //   browserWindow.once('leave-full-screen', () => browserWindow.hide())
+                //   browserWindow.setFullScreen(false)
+                // } else {
                 browserWindow.hide();
+
+                // }
+
             });
 
             // Initiating a browser-back or browser-forward with mouse buttons should navigate history.

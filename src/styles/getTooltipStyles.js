@@ -122,6 +122,14 @@ export default function getTooltipStyles(
             zIndex: variables.tooltipzIndex,
             width: wrapperWidth,
 
+            // whiteSpace,
+
+            // width: 'auto',
+            // maxWidth,
+            // whiteSpace: 'nowrap',
+
+            // wordBreak: 'initial',
+
             // Because it uses fixed positioning, the top-left corner of the tooltip is aligned
             // with the top-left corner of the window by default.
             // we will use yOffset to position the tooltip relative to the Wrapped Component
@@ -156,9 +164,12 @@ export default function getTooltipStyles(
             color: themeColors.textReversed,
             fontFamily: fontFamily.GTA,
             fontSize: tooltipFontSize,
-            overflowWrap: 'normal',
+            // overflowWrap: 'normal',
             overflow: 'hidden',
-            whiteSpace: 'nowrap',
+            // width: '100%',
+
+            // whiteSpace: 'inherit',
+            // whiteSpace: 'nowrap',
         },
         pointerWrapperStyle: {
             position: 'fixed',

@@ -4,6 +4,9 @@ import * as MainQueue from '../Network/MainQueue';
 // eslint-disable-next-line import/no-cycle
 import DateUtils from '../DateUtils';
 import * as Localize from '../Localize';
+import UnreadIndicatorUpdater from "../UnreadIndicatorUpdater";
+
+// import UnreadIndicatorUpdater from "../UnreadIndicatorUpdater";
 
 let currentActiveClients;
 Onyx.connect({
@@ -50,7 +53,11 @@ function clearStorageAndRedirect(errorMessage) {
             if (errorMessage) {
                 Onyx.merge(ONYXKEYS.SESSION, {errors: {[DateUtils.getMicroseconds()]: Localize.translateLocal(errorMessage)}});
             }
-        });
+
+            console.log(new Date());
+            console.log('Onyx.clear()');
+           //  UnreadIndicatorUpdater.resetUnread();
+        })// .finally(() => UnreadIndicatorUpdater.resetUnread());
 }
 
 /**
@@ -63,6 +70,9 @@ function clearStorageAndRedirect(errorMessage) {
  * @param {String} [errorMessage] error message to be displayed on the sign in page
  */
 function redirectToSignIn(errorMessage) {
+    // log date when execution started
+    console.log('redirectToSignIn()');
+    console.log(new Date());
     MainQueue.clear();
     clearStorageAndRedirect(errorMessage);
 }
