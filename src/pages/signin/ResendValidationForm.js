@@ -18,6 +18,7 @@ import OfflineIndicator from '../../components/OfflineIndicator';
 import networkPropTypes from '../../components/networkPropTypes';
 import {withNetwork} from '../../components/OnyxProvider';
 import DotIndicatorMessage from '../../components/DotIndicatorMessage';
+import themeColors from "../../styles/themes/default";
 
 const propTypes = {
     /* Onyx Props */
@@ -79,8 +80,11 @@ const ResendValidationForm = (props) => {
                 <DotIndicatorMessage style={[styles.mb5]} type="error" messages={props.account.errors} />
             )}
             <View style={[styles.mb4, styles.flexRow, styles.justifyContentBetween, styles.alignItemsCenter]}>
-                <TouchableOpacity onPress={() => redirectToSignIn()}>
-                    <Text>
+                <TouchableOpacity
+                    onPress={() => redirectToSignIn()}
+                    underlayColor={themeColors.componentBG}
+                >
+                    <Text style={[styles.link]}>
                         {props.translate('common.back')}
                     </Text>
                 </TouchableOpacity>

@@ -692,27 +692,25 @@ class ReportActionCompose extends React.Component {
                             onEmojiSelected={this.addEmojiToTextBox}
                         />
                     )}
-                    <View style={[styles.justifyContentEnd]}>
-                        <Tooltip text={this.props.translate('common.send')}>
-                            <TouchableOpacity
-                                style={[styles.chatItemSubmitButton,
-                                    (this.state.isCommentEmpty || hasExceededMaxCommentLength) ? undefined : styles.buttonSuccess,
-                                ]}
-                                onPress={this.submitForm}
-                                underlayColor={themeColors.componentBG}
+                    <Tooltip containerStyles={styles.justifyContentEnd} text={this.props.translate('common.send')}>
+                        <TouchableOpacity
+                            style={[styles.chatItemSubmitButton,
+                                (this.state.isCommentEmpty || hasExceededMaxCommentLength) ? undefined : styles.buttonSuccess,
+                            ]}
+                            onPress={this.submitForm}
+                            underlayColor={themeColors.componentBG}
 
-                                // Keep focus on the composer when Send message is clicked.
-                                // eslint-disable-next-line react/jsx-props-no-multi-spaces
-                                onMouseDown={e => e.preventDefault()}
-                                disabled={this.state.isCommentEmpty || isBlockedFromConcierge || hasExceededMaxCommentLength}
-                                hitSlop={{
-                                    top: 3, right: 3, bottom: 3, left: 3,
-                                }}
-                            >
-                                <Icon src={Expensicons.Send} fill={(this.state.isCommentEmpty || hasExceededMaxCommentLength) ? themeColors.icon : themeColors.textLight} />
-                            </TouchableOpacity>
-                        </Tooltip>
-                    </View>
+                            // Keep focus on the composer when Send message is clicked.
+                            // eslint-disable-next-line react/jsx-props-no-multi-spaces
+                            onMouseDown={e => e.preventDefault()}
+                            disabled={this.state.isCommentEmpty || isBlockedFromConcierge || hasExceededMaxCommentLength}
+                            hitSlop={{
+                                top: 3, right: 3, bottom: 3, left: 3,
+                            }}
+                        >
+                            <Icon src={Expensicons.Send} fill={(this.state.isCommentEmpty || hasExceededMaxCommentLength) ? themeColors.icon : themeColors.textLight} />
+                        </TouchableOpacity>
+                    </Tooltip>
                 </View>
                 <View style={[
                     styles.flexRow,

@@ -68,6 +68,9 @@ class AddSecondaryLoginPage extends Component {
      * Add a secondary login to a user's account
      */
     submitForm() {
+        if (!this.validateForm()) {
+            return;
+        }
         const login = this.formType === CONST.LOGIN_TYPE.PHONE
             ? LoginUtils.getPhoneNumberWithoutSpecialChars(this.state.login)
             : this.state.login;
@@ -85,7 +88,7 @@ class AddSecondaryLoginPage extends Component {
             : this.state.login;
 
         const validationMethod = this.formType === CONST.LOGIN_TYPE.PHONE ? Str.isValidPhone : Str.isValidEmail;
-        return !this.state.password || !validationMethod(login);
+        return Boolean(this.state.password && validationMethod(login));
     }
 
     render() {
@@ -147,7 +150,7 @@ class AddSecondaryLoginPage extends Component {
                 <FixedFooter style={[styles.flexGrow0]}>
                     <Button
                         success
-                        isDisabled={this.validateForm()}
+                        isDisabled={!this.validateForm()}
                         isLoading={this.props.user.loading}
                         text={this.props.translate('addSecondaryLoginPage.sendValidation')}
                         onPress={this.submitForm}

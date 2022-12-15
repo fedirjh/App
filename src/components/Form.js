@@ -190,15 +190,13 @@ class Form extends React.Component {
 
             // Look for any inputs nested in a custom component, e.g AddressForm or IdentityForm
             if (_.isFunction(child.type)) {
-                const nestedChildren = new child.type(child.props);
+                const nestedChildren = ((nested = new child.type(child.props)) => (_.isFunction(nested.render) ? nested.render() : nested))();
 
-                if (!React.isValidElement(nestedChildren) || !lodashGet(nestedChildren, 'props.children')) {
-                    return child;
+                if (React.isValidElement(nestedChildren) || lodashGet(nestedChildren, 'props.children')) {
+                    return this.childrenWrapperWithProps(nestedChildren);
                 }
 
-                return React.cloneElement(nestedChildren, {
-                    children: this.childrenWrapperWithProps(lodashGet(nestedChildren, 'props.children')),
-                });
+                return child;
             }
 
             // We check if the child has the inputID prop.

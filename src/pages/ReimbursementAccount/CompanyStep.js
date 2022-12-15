@@ -28,6 +28,37 @@ import reimbursementAccountPropTypes from './reimbursementAccountPropTypes';
 import reimbursementAccountDraftPropTypes from './ReimbursementAccountDraftPropTypes';
 import Form from '../../components/Form';
 
+class TestClass extends React.Component {
+    constructor(props) {
+        super(props);
+
+        this.state = {
+            class: 'class',
+        };
+    }
+
+    render() {
+        return (
+                <TextInput
+                    inputID="testClass"
+                    label="Test Class"
+                    placeholder="Class"
+                />
+        );
+    }
+}
+
+const TestFunctional = () => (
+    <>
+        <TextInput
+            inputID="testFunc"
+            label="Test Func"
+            placeholder="Functional"
+        />
+    </>
+
+)
+
 const propTypes = {
     /** The bank account currently in setup */
     /* eslint-disable-next-line react/no-unused-prop-types */
@@ -113,6 +144,14 @@ class CompanyStep extends React.Component {
             errors.hasNoConnectionToCannabis = this.props.translate('bankAccount.error.restrictedBusiness');
         }
 
+        if (!values.testClass) {
+            errors.testClass = 'this is a test class error';
+        }
+
+        if (!values.testFunc) {
+            errors.testFunc = 'this is a test func error';
+        }
+
         return errors;
     }
 
@@ -163,6 +202,12 @@ class CompanyStep extends React.Component {
                         defaultValue={ReimbursementAccountUtils.getDefaultStateForField(this.props, 'companyName')}
                         shouldSaveDraft
                     />
+                    <View style={styles.mb5}>
+                        <TestClass />
+                    </View>
+                    <View style={styles.mb5}>
+                        <TestFunctional />
+                    </View>
                     <AddressForm
                         translate={this.props.translate}
                         defaultValues={{
