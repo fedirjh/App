@@ -2,6 +2,7 @@ import _ from 'underscore';
 import lodashGet from 'lodash/get';
 import CONST from '../CONST';
 import DateUtils from './DateUtils';
+import * as Localize from "./Localize";
 
 /**
  * @param {Object} response
@@ -61,7 +62,7 @@ function getLatestErrorMessage(onyxData) {
         .keys()
         .sortBy()
         .reverse()
-        .map((key) => onyxData.errors[key])
+        .map((key) => Localize.translateIfPhraseKey(onyxData.errors[key]))
         .first()
         .value();
 }
@@ -82,7 +83,7 @@ function getLatestErrorField(onyxData, fieldName) {
         .keys()
         .sortBy()
         .reverse()
-        .map((key) => ({[key]: errorsForField[key]}))
+        .map((key) => ({[key]: Localize.translateIfPhraseKey(errorsForField[key])}))
         .first()
         .value();
 }
