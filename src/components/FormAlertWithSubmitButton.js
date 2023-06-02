@@ -4,6 +4,7 @@ import {View} from 'react-native';
 import styles from '../styles/styles';
 import Button from './Button';
 import FormAlertWrapper from './FormAlertWrapper';
+import * as Localize from "../libs/Localize";
 
 const propTypes = {
     /** Text for the button */
@@ -65,7 +66,7 @@ const FormAlertWithSubmitButton = (props) => (
         containerStyles={[styles.mh5, styles.mb5, styles.justifyContentEnd, ...props.containerStyles]}
         isAlertVisible={props.isAlertVisible}
         isMessageHtml={props.isMessageHtml}
-        message={props.message}
+        message={Localize.translateIfPhraseKey(props.message)}
         onFixTheErrorsLinkPressed={props.onFixTheErrorsLinkPressed}
     >
         {(isOffline) => (
