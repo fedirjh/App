@@ -21,15 +21,16 @@ class KeyboardStateProvider extends React.Component {
 
         this.state = {
             isKeyboardShown: false,
+            keyboardHeight: 0,
         };
     }
 
     componentDidMount() {
-        this.keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
-            this.setState({isKeyboardShown: true});
+        this.keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
+            this.setState({isKeyboardShown: true, keyboardHeight: e.endCoordinates.height});
         });
         this.keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-            this.setState({isKeyboardShown: false});
+            this.setState({isKeyboardShown: false, keyboardHeight: 0});
         });
     }
 

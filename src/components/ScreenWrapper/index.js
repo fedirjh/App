@@ -1,4 +1,4 @@
-import {Keyboard, View, PanResponder} from 'react-native';
+import {Keyboard, View, PanResponder, InteractionManager} from 'react-native';
 import React from 'react';
 import _ from 'underscore';
 import lodashGet from 'lodash/get';
@@ -17,9 +17,11 @@ import TestToolsModal from '../TestToolsModal';
 import withKeyboardState from '../withKeyboardState';
 import withWindowDimensions from '../withWindowDimensions';
 import withEnvironment from '../withEnvironment';
+import withNavigationFocus from '../withNavigationFocus';
 import toggleTestToolsModal from '../../libs/actions/TestTool';
 import CustomDevMenu from '../CustomDevMenu';
 import * as Browser from '../../libs/Browser';
+import * as DeviceCapabilities from '../../libs/DeviceCapabilities';
 
 class ScreenWrapper extends React.Component {
     constructor(props) {
@@ -38,10 +40,36 @@ class ScreenWrapper extends React.Component {
             },
             onPanResponderGrant: Keyboard.dismiss,
         });
-
         this.state = {
             didScreenTransitionEnd: false,
+            canUseTouchScreen: DeviceCapabilities.canUseTouchScreen(),
         };
+
+        if (this.state.canUseTouchScreen && this.props.shouldEnableLockHeightWhileNavigate) {
+            this.state.initalKeyboardAvoidingMinHeight = undefined;
+            this.state.minHeight = props.initialWindowHeight;
+            this.state.isKeyboardCompletelyClosed = false;
+            this.state.didInteractionsComplete = false;
+        }
+    }
+
+    static getDerivedStateFromProps(props, state) {
+        if (!props.isFocused && state.canUseTouchScreen && props.shouldEnableLockHeightWhileNavigate) {
+            return {minHeight: props.initialWindowHeight, isKeyboardCompletelyClosed: false, didInteractionsComplete: false};
+        }
+
+        // Restore min-height to allow floating button when keyboard appeared
+        if (
+            state.canUseTouchScreen &&
+            props.shouldEnableLockHeightWhileNavigate &&
+            props.isFocused &&
+            // keyboardHeight is for native device. Native device doesn't resize windowHeight when keyboard shown
+            props.windowHeight - props.keyboardHeight === props.initialWindowHeight
+        ) {
+            return {isKeyboardCompletelyClosed: true, minHeight: state.initalKeyboardAvoidingMinHeight};
+        }
+
+        return null;
     }
 
     componentDidMount() {
@@ -78,6 +106,16 @@ class ScreenWrapper extends React.Component {
         return !_.isEqual(this.state, nextState) || !_.isEqual(_.omit(this.props, 'modal'), _.omit(nextProps, 'modal'));
     }
 
+    componentDidUpdate() {
+        if (!this.props.isFocused || this.state.didInteractionsComplete) {
+            return;
+        }
+
+        InteractionManager.runAfterInteractions(() => {
+            this.setState({didInteractionsComplete: true});
+        });
+    }
+
     componentWillUnmount() {
         if (this.unsubscribeTransitionEnd) {
             this.unsubscribeTransitionEnd();
@@ -104,11 +142,20 @@ class ScreenWrapper extends React.Component {
                         paddingStyle.paddingBottom = paddingBottom;
                     }
 
+                    // we should also calculate vertical padding and vertical insets to minHeight
+                    const verticalPadding = paddingStyle.paddingTop || 0 + paddingStyle.paddingBottom || 0;
+                    const verticalInsets = insets.top + insets.bottom;
+                    const minHeight =
+                        this.state.minHeight === undefined || !this.state.canUseTouchScreen || !this.props.shouldEnableLockHeightWhileNavigate
+                            ? undefined
+                            : this.state.minHeight - verticalPadding - verticalInsets;
+
                     return (
                         <View
                             style={styles.flex1}
                             // eslint-disable-next-line react/jsx-props-no-spreading
                             {...(this.props.environment === CONST.ENVIRONMENT.DEV ? this.panResponder.panHandlers : {})}
+                            testID={this.props.testID}
                         >
                             <View
                                 style={[styles.flex1, paddingStyle, ...this.props.style]}
@@ -116,9 +163,14 @@ class ScreenWrapper extends React.Component {
                                 {...this.keyboardDissmissPanResponder.panHandlers}
                             >
                                 <KeyboardAvoidingView
-                                    style={[styles.w100, styles.h100, {maxHeight}]}
+                                    style={[styles.w100, styles.h100, {maxHeight, minHeight}]}
                                     behavior={this.props.keyboardAvoidingViewBehavior}
-                                    enabled={this.props.shouldEnableKeyboardAvoidingView}
+                                    enabled={
+                                        this.props.shouldEnableKeyboardAvoidingView &&
+                                        (!this.state.canUseTouchScreen || !this.props.shouldEnableLockHeightWhileNavigate
+                                            ? true
+                                            : this.state.didInteractionsComplete && this.state.isKeyboardCompletelyClosed)
+                                    }
                                 >
                                     <PickerAvoidingView
                                         style={styles.flex1}
@@ -152,4 +204,4 @@ class ScreenWrapper extends React.Component {
 ScreenWrapper.propTypes = propTypes;
 ScreenWrapper.defaultProps = defaultProps;
 
-export default compose(withNavigation, withEnvironment, withWindowDimensions, withKeyboardState, withNetwork())(ScreenWrapper);
+export default compose(withNavigation, withNavigationFocus, withEnvironment, withWindowDimensions, withKeyboardState, withNetwork())(ScreenWrapper);
