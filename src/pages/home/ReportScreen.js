@@ -357,7 +357,7 @@ function ReportScreen({
             (!firstRenderRef.current &&
                 !report.reportID &&
                 !isOptimisticDelete &&
-                !report.isLoadingReportActions &&
+                !reportMetadata.isLoadingReportActions &&
                 !isLoading &&
                 !userLeavingStatus) ||
             shouldHideReport,
