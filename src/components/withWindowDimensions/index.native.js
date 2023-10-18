@@ -8,8 +8,14 @@ import getWindowHeightAdjustment from '../../libs/getWindowHeightAdjustment';
 
 const WindowDimensionsContext = createContext(null);
 const windowDimensionsPropTypes = {
+    // Initial width of the window
+    initialWindowWidth: PropTypes.number,
+
     // Width of the window
     windowWidth: PropTypes.number.isRequired,
+
+    // Initial height of the window
+    initialWindowHeight: PropTypes.number,
 
     // Height of the window
     windowHeight: PropTypes.number.isRequired,
@@ -33,19 +39,39 @@ const windowDimensionsProviderPropTypes = {
 };
 
 function WindowDimensionsProvider(props) {
-    const [windowDimension, setWindowDimension] = useState(() => {
-        const initialDimensions = Dimensions.get('window');
-        return {
-            windowHeight: initialDimensions.height,
-            windowWidth: initialDimensions.width,
-        };
+    const initialDimensions = Dimensions.get('window');
+    const screenWindowHeightDifference = Dimensions.get('screen').height - initialDimensions.height;
+    const [windowDimension, setWindowDimension] = useState({
+        initialWindowHeight: initialDimensions.height,
+        initialWindowWidth: initialDimensions.width,
+        windowHeight: initialDimensions.height,
+        windowWidth: initialDimensions.width,
     });
+
+    /**
+     * Determines if a given dimension represents a landscape orientation.
+     *
+     * @param {Object} dimension - The dimension to check.
+     * @param {number} dimension.width - The width of the dimension.
+     * @param {number} dimension.height - The height of the dimension.
+     * @returns {boolean} Returns `true` if the dimension is in landscape orientation, `false` otherwise.
+     */
+    const isLandscape = (dimension) => dimension.width >= dimension.height;
 
     useEffect(() => {
         const onDimensionChange = (newDimensions) => {
-            const {window} = newDimensions;
+            const {window, screen} = newDimensions;
+            const isNewDimensionMobileLandscape = isLandscape(window);
+            const isPrevInitialDimensionMobileLandscape = isLandscape(initialDimensions);
+            const isOrientationChange = isNewDimensionMobileLandscape !== isPrevInitialDimensionMobileLandscape;
+            if (isOrientationChange) {
+                initialDimensions.width = screen.width;
+                initialDimensions.height = screen.height - screenWindowHeightDifference;
+            }
 
             setWindowDimension({
+                initialWindowHeight: initialDimensions.height,
+                initialWindowWidth: initialDimensions.width,
                 windowHeight: window.height,
                 windowWidth: window.width,
             });
@@ -71,7 +97,9 @@ function WindowDimensionsProvider(props) {
                 return (
                     <WindowDimensionsContext.Provider
                         value={{
+                            initialWindowHeight: windowDimension.initialWindowHeight + getWindowHeightAdjustment(insets),
                             windowHeight: windowDimension.windowHeight + getWindowHeightAdjustment(insets),
+                            initialWindowWidth: windowDimension.initialWindowWidth,
                             windowWidth: windowDimension.windowWidth,
                             isExtraSmallScreenWidth,
                             isSmallScreenWidth,
@@ -113,4 +141,4 @@ export default function withWindowDimensions(WrappedComponent) {
     return WithWindowDimensions;
 }
 
-export {WindowDimensionsProvider, windowDimensionsPropTypes};
+export {WindowDimensionsProvider, windowDimensionsPropTypes, WindowDimensionsContext};

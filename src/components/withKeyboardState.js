@@ -17,12 +17,15 @@ const keyboardStateProviderPropTypes = {
 function KeyboardStateProvider(props) {
     const {children} = props;
     const [isKeyboardShown, setIsKeyboardShown] = useState(false);
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
     useEffect(() => {
-        const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+        const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
             setIsKeyboardShown(true);
+            setKeyboardHeight(e.endCoordinates.height);
         });
         const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
             setIsKeyboardShown(false);
+            setKeyboardHeight(0);
         });
 
         return () => {
@@ -31,7 +34,7 @@ function KeyboardStateProvider(props) {
         };
     }, []);
 
-    return <KeyboardStateContext.Provider value={{isKeyboardShown}}>{children}</KeyboardStateContext.Provider>;
+    return <KeyboardStateContext.Provider value={{isKeyboardShown, keyboardHeight}}>{children}</KeyboardStateContext.Provider>;
 }
 
 KeyboardStateProvider.propTypes = keyboardStateProviderPropTypes;

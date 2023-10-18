@@ -1,9 +1,9 @@
-import {Keyboard, View, PanResponder} from 'react-native';
+import {Keyboard, View, PanResponder, InteractionManager} from 'react-native';
 import React, {useEffect, useRef, useState} from 'react';
 import _ from 'underscore';
 import lodashGet from 'lodash/get';
 import {PickerAvoidingView} from 'react-native-picker-select';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useIsFocused} from '@react-navigation/native';
 import KeyboardAvoidingView from '../KeyboardAvoidingView';
 import CONST from '../../CONST';
 import styles from '../../styles/styles';
@@ -19,6 +19,7 @@ import useWindowDimensions from '../../hooks/useWindowDimensions';
 import useKeyboardState from '../../hooks/useKeyboardState';
 import useEnvironment from '../../hooks/useEnvironment';
 import useNetwork from '../../hooks/useNetwork';
+import * as DeviceCapabilities from '../../libs/DeviceCapabilities';
 
 function ScreenWrapper({
     shouldEnableMaxHeight,
@@ -35,8 +36,9 @@ function ScreenWrapper({
     shouldDismissKeyboardBeforeClose,
     onEntryTransitionEnd,
     testID,
+    shouldEnableLockHeightWhileNavigate,
 }) {
-    const {windowHeight, isSmallScreenWidth} = useWindowDimensions();
+    const {windowHeight, isSmallScreenWidth, initialWindowHeight} = useWindowDimensions();
     const keyboardState = useKeyboardState();
     const {isDevelopment} = useEnvironment();
     const {isOffline} = useNetwork();
@@ -44,6 +46,12 @@ function ScreenWrapper({
     const [didScreenTransitionEnd, setDidScreenTransitionEnd] = useState(false);
     const maxHeight = shouldEnableMaxHeight ? windowHeight : undefined;
     const isKeyboardShown = lodashGet(keyboardState, 'isKeyboardShown', false);
+    const keyboardHeight = lodashGet(keyboardState, 'keyboardHeight', false);
+    const canUseTouchScreen = DeviceCapabilities.canUseTouchScreen();
+    const [minHeight, setMinHeight] = useState(initialWindowHeight);
+    const [isKeyboardCompletelyClosed, setIsKeyboardCompletelyClosed] = useState(false);
+    const [didInteractionsComplete, setDidInteractionsComplete] = useState(false);
+    const isFocused = useIsFocused();
 
     const panResponder = useRef(
         PanResponder.create({
@@ -98,6 +106,40 @@ function ScreenWrapper({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    useEffect(() => {
+        if (!isFocused || !canUseTouchScreen || !shouldEnableLockHeightWhileNavigate) {
+            return;
+        }
+
+        setMinHeight(initialWindowHeight);
+        setIsKeyboardCompletelyClosed(false);
+        setDidInteractionsComplete(false);
+    }, [isFocused, shouldEnableLockHeightWhileNavigate, initialWindowHeight, canUseTouchScreen]);
+
+    useEffect(() => {
+        if (!canUseTouchScreen || !shouldEnableLockHeightWhileNavigate || !isFocused || windowHeight - keyboardHeight !== initialWindowHeight) {
+            return;
+        }
+
+        setIsKeyboardCompletelyClosed(true);
+        setMinHeight(undefined);
+    }, [shouldEnableLockHeightWhileNavigate, isFocused, windowHeight, keyboardHeight, initialWindowHeight, canUseTouchScreen, didInteractionsComplete]);
+
+    useEffect(() => {
+        if (!isFocused || didInteractionsComplete || !canUseTouchScreen) {
+            return;
+        }
+
+        const interactionTask = InteractionManager.runAfterInteractions(() => {
+            setDidInteractionsComplete(true);
+        });
+
+        return () => {
+            // Cancel the interaction task if the component unmounts or if the dependencies change
+            interactionTask.cancel();
+        };
+    }, [isFocused, didInteractionsComplete, canUseTouchScreen]);
+
     return (
         <SafeAreaConsumer>
             {({insets, paddingTop, paddingBottom, safeAreaPaddingBottomStyle}) => {
@@ -112,6 +154,11 @@ function ScreenWrapper({
                     paddingStyle.paddingBottom = paddingBottom;
                 }
 
+                const verticalPadding = paddingStyle.paddingTop || 0 + paddingStyle.paddingBottom || 0;
+                const verticalInsets = insets.top + insets.bottom;
+
+                const calculatedMinHeight = minHeight === undefined || !canUseTouchScreen || !shouldEnableLockHeightWhileNavigate ? undefined : minHeight - verticalPadding - verticalInsets;
+
                 return (
                     <View
                         style={styles.flex1}
@@ -125,9 +172,12 @@ function ScreenWrapper({
                             {...keyboardDissmissPanResponder.panHandlers}
                         >
                             <KeyboardAvoidingView
-                                style={[styles.w100, styles.h100, {maxHeight}]}
+                                style={[styles.w100, styles.h100, {maxHeight, minHeight: calculatedMinHeight}]}
                                 behavior={keyboardAvoidingViewBehavior}
-                                enabled={shouldEnableKeyboardAvoidingView}
+                                enabled={
+                                    shouldEnableKeyboardAvoidingView &&
+                                    (!canUseTouchScreen || !shouldEnableLockHeightWhileNavigate ? true : didInteractionsComplete && isKeyboardCompletelyClosed)
+                                }
                             >
                                 <PickerAvoidingView
                                     style={styles.flex1}
@@ -137,7 +187,7 @@ function ScreenWrapper({
                                     {isDevelopment && <TestToolsModal />}
                                     {isDevelopment && <CustomDevMenu />}
                                     {
-                                        // If props.children is a function, call it to provide the insets to the children.
+                                        // If children is a function, call it to provide the insets to the children.
                                         _.isFunction(children)
                                             ? children({
                                                   insets,
