@@ -5,7 +5,6 @@ import PropTypes from 'prop-types';
 import React, {useCallback, useEffect, useMemo, useRef} from 'react';
 import {View} from 'react-native';
 import {withOnyx} from 'react-native-onyx';
-import _ from 'underscore';
 import networkPropTypes from '@components/networkPropTypes';
 import {withNetwork} from '@components/OnyxProvider';
 import withCurrentReportID from '@components/withCurrentReportID';
@@ -13,12 +12,12 @@ import withCurrentUserPersonalDetails from '@components/withCurrentUserPersonalD
 import withNavigationFocus from '@components/withNavigationFocus';
 import useActiveWorkspace from '@hooks/useActiveWorkspace';
 import useLocalize from '@hooks/useLocalize';
+import useOrderedReportIDs from '@hooks/useOrderedReportsIDS';
 import usePrevious from '@hooks/usePrevious';
 import useThemeStyles from '@hooks/useThemeStyles';
 import compose from '@libs/compose';
 import {getPolicyMembersByIdWithoutCurrentUser} from '@libs/PolicyUtils';
 import * as ReportUtils from '@libs/ReportUtils';
-import SidebarUtils from '@libs/SidebarUtils';
 import reportPropTypes from '@pages/reportPropTypes';
 import * as Policy from '@userActions/Policy';
 import CONST from '@src/CONST';
@@ -55,9 +54,6 @@ const propTypes = {
 
     /** The chat priority mode */
     priorityMode: PropTypes.string,
-
-    /** Beta features list */
-    betas: PropTypes.arrayOf(PropTypes.string),
 
     network: networkPropTypes.isRequired,
 
@@ -104,7 +100,6 @@ const defaultProps = {
     allReportActions: {},
     isLoadingApp: true,
     priorityMode: CONST.PRIORITY_MODE.DEFAULT,
-    betas: [],
     policies: {},
     policyMembers: {},
     session: {
@@ -116,7 +111,6 @@ const defaultProps = {
 function SidebarLinksData({
     isFocused,
     allReportActions,
-    betas,
     chatReports,
     currentReportID,
     insets,
@@ -141,23 +135,12 @@ function SidebarLinksData({
 
     const reportIDsRef = useRef(null);
     const isLoading = isLoadingApp;
-    const optionListItems = useMemo(() => {
-        const reportIDs = SidebarUtils.getOrderedReportIDs(
-            null,
-            chatReports,
-            betas,
-            policies,
-            priorityMode,
-            allReportActions,
-            transactionViolations,
-            activeWorkspaceID,
-            policyMemberAccountIDs,
-        );
+    const reportIDs = useOrderedReportIDs(currentReportID, chatReports, policies, priorityMode, allReportActions, transactionViolations, policyMemberAccountIDs);
 
-        if (deepEqual(reportIDsRef.current, reportIDs)) {
+    const optionListItems = useMemo(() => {
+        if (reportIDsRef.current && reportIDs && deepEqual(reportIDsRef.current, reportIDs)) {
             return reportIDsRef.current;
         }
-
         // 1. We need to update existing reports only once while loading because they are updated several times during loading and causes this regression: https://github.com/Expensify/App/issues/24596#issuecomment-1681679531
         // 2. If the user is offline, we need to update the reports unconditionally, since the loading of report data might be stuck in this case.
         // 3. Changing priority mode to Most Recent will call OpenApp. If there is an existing reports and the priority mode is updated, we want to immediately update the list instead of waiting the OpenApp request to complete
@@ -165,29 +148,7 @@ function SidebarLinksData({
             reportIDsRef.current = reportIDs;
         }
         return reportIDsRef.current || [];
-    }, [chatReports, betas, policies, priorityMode, allReportActions, transactionViolations, activeWorkspaceID, policyMemberAccountIDs, isLoading, network.isOffline, prevPriorityMode]);
-
-    // We need to make sure the current report is in the list of reports, but we do not want
-    // to have to re-generate the list every time the currentReportID changes. To do that
-    // we first generate the list as if there was no current report, then here we check if
-    // the current report is missing from the list, which should very rarely happen. In this
-    // case we re-generate the list a 2nd time with the current report included.
-    const optionListItemsWithCurrentReport = useMemo(() => {
-        if (currentReportID && !_.contains(optionListItems, currentReportID)) {
-            return SidebarUtils.getOrderedReportIDs(
-                currentReportID,
-                chatReports,
-                betas,
-                policies,
-                priorityMode,
-                allReportActions,
-                transactionViolations,
-                activeWorkspaceID,
-                policyMemberAccountIDs,
-            );
-        }
-        return optionListItems;
-    }, [currentReportID, optionListItems, chatReports, betas, policies, priorityMode, allReportActions, transactionViolations, activeWorkspaceID, policyMemberAccountIDs]);
+    }, [reportIDs, isLoading, network.isOffline, prevPriorityMode, priorityMode]);
 
     const currentReportIDRef = useRef(currentReportID);
     currentReportIDRef.current = currentReportID;
@@ -207,7 +168,7 @@ function SidebarLinksData({
                 // Data props:
                 isActiveReport={isActiveReport}
                 isLoading={isLoading}
-                optionListItems={optionListItemsWithCurrentReport}
+                optionListItems={optionListItems}
                 activeWorkspaceID={activeWorkspaceID}
             />
         </View>
@@ -315,10 +276,6 @@ export default compose(
         priorityMode: {
             key: ONYXKEYS.NVP_PRIORITY_MODE,
             initialValue: CONST.PRIORITY_MODE.DEFAULT,
-        },
-        betas: {
-            key: ONYXKEYS.BETAS,
-            initialValue: [],
         },
         allReportActions: {
             key: ONYXKEYS.COLLECTION.REPORT_ACTIONS,
