@@ -17,6 +17,7 @@ import usePrevious from '@hooks/usePrevious';
 import useThemeStyles from '@hooks/useThemeStyles';
 import compose from '@libs/compose';
 import {getPolicyMembersByIdWithoutCurrentUser} from '@libs/PolicyUtils';
+import * as ReportActionsUtils from '@libs/ReportActionsUtils';
 import * as ReportUtils from '@libs/ReportUtils';
 import reportPropTypes from '@pages/reportPropTypes';
 import * as Policy from '@userActions/Policy';
@@ -112,6 +113,9 @@ function SidebarLinksData({
     isFocused,
     allReportActions,
     chatReports,
+    pinnedOrGBRReports,
+    archivedReports,
+    draftReports,
     currentReportID,
     insets,
     isLoadingApp,
@@ -130,12 +134,29 @@ function SidebarLinksData({
 
     const policyMemberAccountIDs = getPolicyMembersByIdWithoutCurrentUser(policyMembers, activeWorkspaceID, accountID);
 
+    const pinnedOrGBRReportsIDs = useMemo(() => Object.values(pinnedOrGBRReports).filter(Boolean).join(','), [pinnedOrGBRReports]);
+    const archivedReportsIDs = useMemo(() => Object.values(archivedReports).filter(Boolean).join(','), [archivedReports]);
+    const draftReportsIDs = useMemo(() => Object.values(draftReports).filter(Boolean).join(','), [draftReports]);
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => Policy.openWorkspace(activeWorkspaceID, policyMemberAccountIDs), [activeWorkspaceID]);
 
     const reportIDsRef = useRef(null);
     const isLoading = isLoadingApp;
-    const reportIDs = useOrderedReportIDs(currentReportID, chatReports, policies, priorityMode, allReportActions, transactionViolations, policyMemberAccountIDs);
+    const reportIDs = useOrderedReportIDs(
+        currentReportID,
+        chatReports,
+        policies,
+        priorityMode,
+        allReportActions,
+        transactionViolations,
+        {
+            pinnedOrGBRReportsIDs,
+            archivedReportsIDs,
+            draftReportsIDs,
+        },
+        policyMemberAccountIDs,
+    );
 
     const optionListItems = useMemo(() => {
         if (reportIDsRef.current && reportIDs && deepEqual(reportIDsRef.current, reportIDs)) {
@@ -212,6 +233,7 @@ const chatReportSelector = (report) =>
         lastReadTime: report.lastReadTime,
         // Needed for name sorting:
         reportName: report.reportName,
+        displayName: ReportUtils.getReportName(report),
         policyName: report.policyName,
         oldPolicyName: report.oldPolicyName,
         // Other less obvious properites considered for sorting:
@@ -259,6 +281,11 @@ const policySelector = (policy) =>
         avatar: policy.avatar,
     };
 
+const pinnedReportSelector = (report) =>
+    report && (report.isPinned || ReportUtils.requiresAttentionFromCurrentUser(report, ReportActionsUtils.getReportAction(report.parentReportID ?? '', report.parentReportActionID ?? '')))
+        ? report.reportID
+        : null;
+
 export default compose(
     withCurrentReportID,
     withCurrentUserPersonalDetails,
@@ -280,6 +307,21 @@ export default compose(
         allReportActions: {
             key: ONYXKEYS.COLLECTION.REPORT_ACTIONS,
             selector: reportActionsSelector,
+            initialValue: {},
+        },
+        pinnedOrGBRReports: {
+            key: ONYXKEYS.COLLECTION.REPORT,
+            selector: pinnedReportSelector,
+            initialValue: {},
+        },
+        archivedReports: {
+            key: ONYXKEYS.COLLECTION.REPORT,
+            selector: (report) => (report && !pinnedReportSelector(report) && report.statusNum === CONST.REPORT.STATUS_NUM.CLOSED && report.stateNum === CONST.REPORT.STATE_NUM.APPROVED ? report.reportID : null),
+            initialValue: {},
+        },
+        draftReports: {
+            key: ONYXKEYS.COLLECTION.REPORT,
+            selector: (report) => (report && report.hasDraft ? report.reportID : null),
             initialValue: {},
         },
         policies: {

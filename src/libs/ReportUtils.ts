@@ -5047,6 +5047,7 @@ export {
     getAvailableReportFields,
     reportFieldsEnabled,
     getAllAncestorReportActionIDs,
+    shouldHideReport,
 };
 
 export type {

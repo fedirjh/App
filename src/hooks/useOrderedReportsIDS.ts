@@ -1,5 +1,5 @@
-import {deepEqual} from 'fast-equals';
-import {useEffect, useMemo, useRef} from 'react';
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+import {useCallback, useEffect, useMemo, useRef} from 'react';
 import type {OnyxCollection} from 'react-native-onyx';
 import type {ValueOf} from 'type-fest';
 import {useBetas} from '@components/OnyxProvider';
@@ -12,10 +12,23 @@ import type Policy from '@src/types/onyx/Policy';
 import type Report from '@src/types/onyx/Report';
 import useActiveWorkspace from './useActiveWorkspace';
 
+const isReportAvailable = (report: Report) => !(!report?.reportID ||
+        !report?.type ||
+        report?.reportName === undefined ||
+        !!report?.isHidden ||
+        !!report?.participantAccountIDs?.includes(CONST.ACCOUNT_ID.NOTIFICATIONS) ||
+        (report?.participantAccountIDs?.length === 0 &&
+            !ReportUtils.isChatThread(report) &&
+            !ReportUtils.isPublicRoom(report) &&
+            !ReportUtils.isUserCreatedPolicyRoom(report) &&
+            !ReportUtils.isArchivedRoom(report) &&
+            !ReportUtils.isMoneyRequestReport(report) &&
+            !ReportUtils.isTaskReport(report)));
+
 const collator = new Intl.Collator('en', {sensitivity: 'base', usage: 'sort'});
 
 const compareReportNames = (a: Report, b: Report) => {
-    if (!a.displayName || !b.displayName) {
+    if (!a?.displayName || !b?.displayName) {
         return 0;
     }
     return collator.compare(a.displayName.toLowerCase(), b.displayName.toLowerCase());
@@ -34,12 +47,10 @@ const compareReportDates = (a: Report, b: Report) => {
     return 0;
 };
 
-const isPinnedOrGBRReport = (report: Report) => {
-    if (!report || !report.isPinned) {
-        return false;
-    }
-    const reportAction = ReportActionsUtils.getReportAction(report.parentReportID ?? '', report.parentReportActionID ?? '');
-    return ReportUtils.requiresAttentionFromCurrentUser(report, reportAction);
+type IDS = {
+    pinnedOrGBRReportsIDs: string;
+    archivedReportsIDs: string;
+    draftReportsIDs: string;
 };
 
 const useOrderedReportIDs = (
@@ -49,12 +60,15 @@ const useOrderedReportIDs = (
     priorityMode: ValueOf<typeof CONST.PRIORITY_MODE>,
     allReportActions: OnyxCollection<ReportAction[]>,
     transactionViolations: OnyxCollection<TransactionViolation[]>,
+    ids: IDS,
     policyMemberAccountIDs: number[] = [],
 ) => {
     const reportIDsRef = useRef<string[]>([]);
     const currentReportIDRef = useRef(currentReportId);
     const betas = useBetas();
     const {activeWorkspaceID} = useActiveWorkspace();
+    const conciergeChatReport = useRef<Report | undefined>(undefined);
+
 
     // We need to make sure the current report is in the list of reports, but we do not want
     // to have to re-generate the list every time the currentReportID changes. To do that,
@@ -71,6 +85,13 @@ const useOrderedReportIDs = (
     const isInGSDMode = priorityMode === CONST.PRIORITY_MODE.GSD;
 
     const allReportsDictValues = useMemo(() => Object.values(allReports), [allReports]);
+
+    useEffect(() => {
+        if (conciergeChatReport.current) {
+            return;
+        }
+        conciergeChatReport.current = allReportsDictValues.find(ReportUtils.isConciergeChatReport);
+    }, [allReportsDictValues]);
 
     const reportsWithViolation = useMemo(
         () =>
@@ -89,11 +110,24 @@ const useOrderedReportIDs = (
         [allReportActions, allReports, betas, transactionViolations],
     );
 
-    const conciergeChatReport = useMemo(() => allReportsDictValues.find(ReportUtils.isConciergeChatReport), [allReportsDictValues]);
+    const isLinkedToWorkspace = useCallback(
+        (report: Report) => !!activeWorkspaceID || policyMemberAccountIDs.length > 0 ? ReportUtils.doesReportBelongToWorkspace(report, policyMemberAccountIDs, activeWorkspaceID) : true,
+        [activeWorkspaceID, policyMemberAccountIDs]
+    );
+
+    const excludedReports = useMemo(
+        () => [
+            ...ids.archivedReportsIDs,
+            ...ids.draftReportsIDs,
+            ...ids.pinnedOrGBRReportsIDs
+        ].join(','),
+        [ids]
+    )
 
     // Filter out all the reports that shouldn't be displayed
-    const filteredReportsToDisplay = useMemo(() => {
-        const reportsLHN = allReportsDictValues.filter((report) =>
+    const reportsToDisplay = useMemo(() => {
+        const start = performance.now();
+        const reportsLHN = allReportsDictValues.filter((report) => report?.reportID && !excludedReports.includes(report.reportID) &&
             ReportUtils.shouldReportBeInOptionList({
                 report,
                 currentReportId: currentActiveReportId ?? '',
@@ -102,72 +136,107 @@ const useOrderedReportIDs = (
                 policies,
                 excludeEmptyChats: true,
                 doesReportHaveViolations: !!report.reportID && reportsWithViolation.includes(report.reportID),
-            }),
+            }) && isLinkedToWorkspace(report),
         );
         // Display Concierge chat report when there is no report to be displayed
-        if (reportsLHN.length === 0 && conciergeChatReport) {
-            return [conciergeChatReport];
+        if (reportsLHN.length === 0 && conciergeChatReport.current) {
+            return [conciergeChatReport.current];
         }
+
+        const end = performance.now();
+        console.log(`Execution time: reportsToDisplay: ${end - start} ms`);
         return reportsLHN;
-    }, [allReportsDictValues, betas, conciergeChatReport, currentActiveReportId, isInGSDMode, policies, reportsWithViolation]);
+    }, [allReportsDictValues, betas, currentActiveReportId, excludedReports, isInGSDMode, isLinkedToWorkspace, policies, reportsWithViolation]);
 
-    const reportsToDisplay: Report[] = useMemo(() => {
-        if (!!activeWorkspaceID || policyMemberAccountIDs.length > 0) {
-            return filteredReportsToDisplay.filter((report) => ReportUtils.doesReportBelongToWorkspace(report, policyMemberAccountIDs, activeWorkspaceID));
-        }
-        return filteredReportsToDisplay;
-    }, [activeWorkspaceID, policyMemberAccountIDs, filteredReportsToDisplay]);
-
-    const {pinnedAndGBRReports, draftReports, nonArchivedReports, archivedReports} = useMemo(() => {
-        const pinnedAndGBRReportsLocal: Report[] = [];
-        const draftReportsLocal: Report[] = [];
-        const nonArchivedReportsLocal: Report[] = [];
-        const archivedReportsLocal: Report[] = [];
-        reportsToDisplay?.forEach((report) => {
-            // Normally, the spread operator would be used here to clone the report and prevent the need to reassign the params.
-            // However, this code needs to be very performant to handle thousands of reports, so in the interest of speed, we're just going to disable this lint rule and add
-            // the reportDisplayName property to the report object directly.
-            // eslint-disable-next-line no-param-reassign
-            report.displayName = ReportUtils.getReportName(report);
-
-            if (isPinnedOrGBRReport(report)) {
-                pinnedAndGBRReportsLocal.push(report);
-            } else if (report.hasDraft) {
-                draftReportsLocal.push(report);
-            } else if (ReportUtils.isArchivedRoom(report)) {
-                archivedReportsLocal.push(report);
-            } else {
-                nonArchivedReportsLocal.push(report);
-            }
-        });
-        return {
-            pinnedAndGBRReports: pinnedAndGBRReportsLocal,
-            draftReports: draftReportsLocal,
-            nonArchivedReports: nonArchivedReportsLocal,
-            archivedReports: archivedReportsLocal,
-        };
-    }, [reportsToDisplay]);
 
     // Sort each group of reports accordingly
-    const sortedPinnedAndGBRReports = useMemo(() => pinnedAndGBRReports.sort(compareReportNames), [pinnedAndGBRReports]);
-    const sortedDraftReports = useMemo(() => draftReports.sort(compareReportNames), [draftReports]);
+    // const sortedPinnedAndGBRReports = useMemo(
+    //     () => pinnedAndGBRReports.sort(compareReportNames).map((report) => report.reportID), 
+    //     [pinnedAndGBRReports]
+    // );
+
+    const sortReports = useCallback(
+        (iDs: string) => iDs.split(',')
+        .map(id => {
+            const report = allReports[`report_${id}`];                
+            return report && isReportAvailable(report) && ReportUtils.canAccessReport(report, policies, betas) 
+            ? report : null
+        })
+        .filter(report => report && isLinkedToWorkspace(report))
+        .sort(compareReportNames)
+        .map((report) => report?.reportID),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [policies, betas, isLinkedToWorkspace]
+    )
+
+    const sortedPinnedAndGBRReports = useMemo(
+        () => sortReports(ids.pinnedOrGBRReportsIDs),
+        [sortReports, ids.pinnedOrGBRReportsIDs]
+    );
+
+    const sortedDraftReports = useMemo(
+        () => sortReports(ids.draftReportsIDs),
+        [sortReports, ids.draftReportsIDs]
+    );
+
+    const sortedArchivedReports = useMemo(
+        () => ids.archivedReportsIDs.split(',')
+            .map(id => {
+                const report = allReports[`report_${id}`];
+                const shouldDisplay = report && isReportAvailable(report) && ReportUtils.canAccessReport(report, policies, betas)
+
+                if(!shouldDisplay){
+                    return null
+                }
+
+                if(currentActiveReportId){
+                    const lastVisibleMessage = ReportActionsUtils.getLastVisibleMessage(report.reportID);
+                    const isEmptyChat = !report.lastMessageText && !report.lastMessageTranslationKey && !lastVisibleMessage.lastMessageText && !lastVisibleMessage.lastMessageTranslationKey;
+                    const canHideReport = ReportUtils.shouldHideReport(report, currentActiveReportId);
+
+                    if(ReportUtils.isChatThread(report) && canHideReport && isEmptyChat){
+                        return null
+                    }
+                }
+
+                const shouldShow = isInGSDMode ? ReportUtils.isUnread(report) && report.notificationPreference !== CONST.REPORT.NOTIFICATION_PREFERENCE.MUTE : !isInGSDMode;
+      
+                return shouldShow ? report : null
+            })
+            .filter(report => report && isLinkedToWorkspace(report))
+            .sort((a, b) => (!isInGSDMode ? compareReportDates(b, a) : compareReportNames(a, b)))
+            .map((report) => report?.reportID)
+        ,
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [betas, currentActiveReportId, ids.archivedReportsIDs, isInGSDMode, policies, isLinkedToWorkspace],
+    );
+    // const sortedDraftReports = useMemo(() => draftReports.sort(compareReportNames).map((report) => report.reportID), [draftReports]);
 
     const sortedNonArchivedReports = useMemo(
-        () => nonArchivedReports.sort((a, b) => (!isInGSDMode && compareReportDates(b, a)) || compareReportNames(a, b)),
-        [isInGSDMode, nonArchivedReports],
+        () => {
+            const start = performance.now();
+            const r = reportsToDisplay
+        .sort((a, b) => (!isInGSDMode && compareReportDates(b, a)) || compareReportNames(a, b))
+        .map((report) => report.reportID)
+        const end = performance.now();
+        console.log(`Execution time: sortedNonArchivedReports: ${end - start} ms`);
+        return r;
+    },
+        [isInGSDMode, reportsToDisplay],
     );
-    const sortedArchivedReports = useMemo(
-        () => archivedReports.sort((a, b) => (!isInGSDMode ? compareReportDates(b, a) : compareReportNames(a, b))),
-        [archivedReports, isInGSDMode],
-    );
+    // const sortedArchivedReports = useMemo(
+    //     () => archivedReports.sort((a, b) => (!isInGSDMode ? compareReportDates(b, a) : compareReportNames(a, b))).map((report) => report.reportID),
+    //     [archivedReports, isInGSDMode],
+    // );
 
     useEffect(() => {
         // Now that we have all the reports grouped and sorted, they must be flattened into an array and only return the reportID.
         // The order the arrays are concatenated in matters and will determine the order that the groups are displayed in the sidebar.
-        const reportIDs = [...sortedPinnedAndGBRReports, ...sortedDraftReports, ...sortedNonArchivedReports, ...sortedArchivedReports].map((report) => report.reportID);
+        const reportIDs = [...sortedPinnedAndGBRReports, ...sortedDraftReports, ...sortedNonArchivedReports, ...sortedArchivedReports];
 
-        if (deepEqual(reportIDsRef, reportIDs)) {
+        if (reportIDsRef.current.join(',') === reportIDs.join(',')) {
             return;
+
         }
         reportIDsRef.current = reportIDs;
     }, [sortedArchivedReports, sortedDraftReports, sortedNonArchivedReports, sortedPinnedAndGBRReports]);
